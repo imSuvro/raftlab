@@ -13,8 +13,8 @@ main, tagged on completion.
 | 3 | Feasibility spike | Architect | done | v0.3 |
 | 4 | UX | UX Designer | done | v0.4 |
 | 5 | Architecture (ADRs) | Architect | done | v0.5 |
-| 6 | Planning (backlog) | Product Owner | in progress | |
-| 7 | Repo + CI | DevOps | pending | |
+| 6 | Planning (backlog) | Product Owner | done | v0.6 |
+| 7 | Repo + CI | DevOps | in progress | |
 | 8 | Protocol core | Dev | pending | |
 | 9 | Simulator | Dev | pending | |
 | 10 | Invariants | Dev | pending | |
