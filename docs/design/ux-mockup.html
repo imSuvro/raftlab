@@ -1,0 +1,392 @@
+<title>Raftlab Mockup</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Deliberate single-theme instrument panel (docs/ux.md palette).
+     Every surface painted explicitly; holds on any host ground. */
+  :root{
+    --bg:#0E1420; --surface:#161E2E; --line:#24304A;
+    --text:#D8E1F0; --muted:#8494B0;
+    --leader:#F5B83D; --follower:#5B8DD9; --candidate:#B76EF0;
+    --down:#4A5568; --commit:#46C28E; --fault:#E1604F;
+    --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+    --disp:'Martian Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--commit);outline-offset:2px}
+
+  .app{display:grid;height:100vh;gap:1px;background:var(--line);
+    grid-template-columns:1fr 300px;
+    grid-template-rows:52px 1fr 148px 64px;
+    grid-template-areas:"top top" "stage events" "logwall events" "transport transport"}
+  .panel{background:var(--bg)}
+
+  /* top bar */
+  .top{grid-area:top;display:flex;align-items:center;gap:20px;padding:0 16px;background:var(--surface)}
+  .wordmark{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:.02em}
+  .wordmark span{color:var(--commit)}
+  .narrator{flex:1;text-align:center;font-size:14.5px;color:var(--text);
+    transition:opacity .25s;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .narrator.fade{opacity:0}
+  .seedwrap{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .seedwrap input{background:var(--bg);border:1px solid var(--line);border-radius:4px;
+    color:var(--text);font-family:var(--mono);font-size:13px;padding:5px 8px;width:96px}
+  .share{background:var(--commit);color:#06281B;font-weight:600;font-size:13.5px;
+    padding:7px 14px;border-radius:5px}
+  .share:hover{filter:brightness(1.1)}
+
+  /* stage */
+  .stage{grid-area:stage;position:relative;overflow:hidden}
+  .stage svg{position:absolute;inset:0;width:100%;height:100%}
+  .edge{stroke:var(--line);stroke-width:1}
+  .wall{stroke:var(--fault);stroke-width:2.5;stroke-dasharray:7 5;opacity:0;transition:opacity .3s}
+  .wall.on{opacity:.9}
+  .pulse{r:3.6}
+  .node{cursor:pointer}
+  .node .disc{fill:var(--surface);stroke-width:2.5;transition:stroke .3s}
+  .node .arc{fill:none;stroke:var(--commit);stroke-width:2;opacity:.8}
+  .node text{fill:var(--text);font-family:var(--mono)}
+  .node .nid{font-size:14px;font-weight:500}
+  .node .nterm{font-size:11px;fill:var(--muted)}
+  .node.follower .disc{stroke:var(--follower)}
+  .node.candidate .disc{stroke:var(--candidate)}
+  .node.leader .disc{stroke:var(--leader)}
+  .node.dead{opacity:.9}
+  .node.dead .disc{stroke:var(--down);stroke-dasharray:4 3;fill:#121826}
+  .node.dead text{fill:var(--down)}
+  .crown{fill:var(--leader);font-size:13px;opacity:0;transition:opacity .3s}
+  .node.leader .crown{opacity:1}
+  .ballot{fill:var(--candidate);font-size:11px;opacity:0}
+  .node.candidate .ballot{opacity:1}
+  .halo{fill:none;stroke:var(--leader);opacity:0}
+  .node.leader .halo{animation:halo 1.2s ease-out infinite}
+  @keyframes halo{0%{opacity:.5;r:26}100%{opacity:0;r:40}}
+
+  /* hint chip */
+  .hint{position:absolute;transform:translate(-50%,-130%);background:var(--fault);
+    color:#fff;font-size:13px;font-weight:600;padding:7px 12px;border-radius:16px;
+    animation:hintpulse 1.6s ease-in-out infinite;white-space:nowrap;z-index:3}
+  .hint::after{content:"";position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
+    border:6px solid transparent;border-top-color:var(--fault);border-bottom:none}
+  @keyframes hintpulse{0%,100%{transform:translate(-50%,-130%) scale(1)}50%{transform:translate(-50%,-130%) scale(1.06)}}
+  .hint.gone{display:none}
+
+  /* log wall */
+  .logwall{grid-area:logwall;padding:10px 16px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+  .lwhead{font-family:var(--disp);font-size:10.5px;font-weight:500;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted)}
+  .strip{display:flex;align-items:center;gap:8px;flex:1;min-height:0}
+  .strip .sid{font-family:var(--mono);font-size:11.5px;color:var(--muted);width:22px}
+  .cells{flex:1;display:flex;gap:2px;align-items:stretch;height:100%;position:relative;
+    background:var(--surface);border-radius:3px;padding:2px;overflow:hidden}
+  .cell{width:14px;border-radius:1.5px;flex:0 0 auto;transition:background .3s;position:relative}
+  .cell.uncommitted{opacity:.38}
+  .cell.conflict{animation:strike .5s forwards}
+  @keyframes strike{50%{background:var(--fault);opacity:.9}100%{opacity:.38}}
+  .wm{position:absolute;top:0;bottom:0;width:2px;background:var(--commit);
+    box-shadow:0 0 6px var(--commit);transition:left .4s}
+
+  /* event log */
+  .events{grid-area:events;background:var(--surface);display:flex;flex-direction:column;min-height:0}
+  .evhead{padding:10px 14px;font-family:var(--disp);font-size:10.5px;font-weight:500;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center}
+  .chip{font-family:var(--sans);font-size:11px;text-transform:none;letter-spacing:0;
+    color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:2px 8px}
+  .chip.on{color:var(--text);border-color:var(--muted)}
+  .evlist{flex:1;overflow-y:auto;padding:8px 0;font-family:var(--mono);font-size:12px;line-height:1.7}
+  .ev{padding:1px 14px;display:flex;gap:10px}
+  .ev .t{color:var(--muted);flex:0 0 52px;font-variant-numeric:tabular-nums}
+  .ev.k-elect .m{color:var(--candidate)}
+  .ev.k-fault .m{color:var(--fault)}
+  .ev.k-commit .m{color:var(--commit)}
+
+  /* transport */
+  .transport{grid-area:transport;display:flex;align-items:center;gap:14px;
+    padding:0 16px;background:var(--surface)}
+  .tbtn{width:36px;height:36px;border-radius:6px;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text)}
+  .tbtn:hover{border-color:var(--muted)}
+  .speed{font-family:var(--mono);font-size:12.5px;color:var(--muted);border:1px solid var(--line);
+    border-radius:6px;padding:8px 10px}
+  .timeline{flex:1;position:relative;height:36px;display:flex;align-items:center}
+  .track{width:100%;height:4px;background:var(--line);border-radius:2px;position:relative}
+  .fill{position:absolute;left:0;top:0;bottom:0;background:var(--follower);border-radius:2px;width:64%}
+  .playhead{position:absolute;top:-5px;width:2.5px;height:14px;background:var(--text);left:64%}
+  .marker{position:absolute;top:9px;color:var(--fault);font-size:9px;transform:translateX(-50%)}
+  .faults{display:flex;gap:8px}
+  .fbtn{font-size:13.5px;font-weight:500;padding:9px 13px;border-radius:6px;border:1px solid var(--line)}
+  .fbtn:hover{border-color:var(--fault);color:#fff}
+  .fbtn.primary{border-color:var(--fault);color:var(--fault)}
+  .fbtn.primary:hover{background:var(--fault);color:#fff}
+
+  .toast{position:fixed;bottom:80px;left:50%;transform:translate(-50%,20px);opacity:0;
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:10px 18px;font-size:13.5px;transition:all .3s;pointer-events:none;z-index:9}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (prefers-reduced-motion:reduce){
+    .halo,.hint{animation:none}
+    .pulse{display:none}
+    .wm,.cell,.narrator{transition:none}
+  }
+  @media (max-width:900px){
+    body{overflow:auto}
+    .app{height:auto;grid-template-columns:1fr;
+      grid-template-rows:52px 340px 148px 200px 64px;
+      grid-template-areas:"top" "stage" "logwall" "events" "transport"}
+    .narrator{font-size:13px}
+  }
+</style>
+
+<div class="app">
+  <div class="top panel">
+    <div class="wordmark">raft<span>lab</span></div>
+    <div class="narrator" id="narrator">Node 3 is the leader. Heartbeats keep the others following.</div>
+    <div class="seedwrap"><label for="seed">seed</label><input id="seed" value="0xC0FFEE" spellcheck="false"></div>
+    <button class="share" id="shareBtn">Share this run</button>
+  </div>
+
+  <div class="stage panel" id="stage">
+    <svg id="svg" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="hint" id="hint">Try: kill the leader ✕</div>
+  </div>
+
+  <div class="logwall panel">
+    <div class="lwhead">Replicated logs · one strip per node · color = term · <span style="color:var(--commit)">▎</span>= committed</div>
+    <div id="strips" style="display:flex;flex-direction:column;gap:5px;flex:1"></div>
+  </div>
+
+  <div class="events">
+    <div class="evhead">Events
+      <span style="flex:1"></span>
+      <span class="chip on">All</span><span class="chip">Elections</span><span class="chip">Faults</span>
+    </div>
+    <div class="evlist" id="evlist" role="log" aria-live="polite"></div>
+  </div>
+
+  <div class="transport panel">
+    <button class="tbtn" id="pauseBtn" aria-label="Pause">⏸</button>
+    <button class="tbtn" aria-label="Step one event">⏭</button>
+    <button class="speed">1×</button>
+    <div class="timeline"><div class="track">
+      <div class="fill" id="tlfill"></div>
+      <div class="playhead" id="tlhead"></div>
+      <span class="marker" style="left:38%" id="mk1" hidden>▲</span>
+      <span class="marker" style="left:52%" id="mk2" hidden>▲</span>
+    </div></div>
+    <div class="faults">
+      <button class="fbtn" id="splitBtn">Split network</button>
+      <button class="fbtn" id="healBtn">Heal network</button>
+      <button class="fbtn primary" id="killBtn">Kill node</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// Canned demo state machine — mockup only; the real playground drives this
+// from the sim worker. Everything here is choreography, not protocol.
+// Muted term cycle — deliberately excludes the semantic commit green and
+// role colors; committed-ness reads via opacity + watermark, not hue.
+const TERM_COLORS = ['#4E7FC4','#C9A34E','#9B6FD0','#4E9FB8','#C4645A','#3FA893'];
+const termColor = t => TERM_COLORS[(t-1)%6];
+const svg = document.getElementById('svg');
+const NS = 'http://www.w3.org/2000/svg';
+const CX=400, CY=260, R=170;
+const pos = [...Array(5)].map((_,i)=>{
+  const a = -Math.PI/2 + i*2*Math.PI/5;
+  return {x:CX+R*Math.cos(a), y:CY+R*Math.sin(a)};
+});
+const nodes = [...Array(5)].map((_,i)=>({id:i+1, role:i===2?'leader':'follower', term:7, dead:false}));
+
+// edges
+const edges=[];
+for(let i=0;i<5;i++)for(let j=i+1;j<5;j++){
+  const l=document.createElementNS(NS,'line');
+  l.setAttribute('class','edge');
+  l.setAttribute('x1',pos[i].x);l.setAttribute('y1',pos[i].y);
+  l.setAttribute('x2',pos[j].x);l.setAttribute('y2',pos[j].y);
+  svg.appendChild(l);edges.push({i,j,el:l});
+}
+// partition wall (between {N1,N2} and rest)
+const wall=document.createElementNS(NS,'path');
+wall.setAttribute('class','wall');
+wall.setAttribute('d',`M ${CX-235} ${CY+150} Q ${CX-40} ${CY+40} ${CX+40} ${CY-230}`);
+svg.appendChild(wall);
+
+// nodes
+const nodeEls = nodes.map((n,i)=>{
+  const g=document.createElementNS(NS,'g');
+  g.setAttribute('class','node '+n.role);
+  g.setAttribute('transform',`translate(${pos[i].x},${pos[i].y})`);
+  g.innerHTML=`
+    <circle class="halo" r="26"/>
+    <circle class="disc" r="26"/>
+    <path class="arc" d="M 0 -30 A 30 30 0 0 1 26 -15"/>
+    <text class="nid" text-anchor="middle" dy="1">N${n.id}</text>
+    <text class="nterm" text-anchor="middle" dy="14">t7</text>
+    <text class="crown" text-anchor="middle" dy="-36">♛</text>
+    <text class="ballot" text-anchor="middle" dy="-36">☑</text>`;
+  svg.appendChild(g);
+  return g;
+});
+function setRole(i,role){nodes[i].role=role;nodeEls[i].setAttribute('class','node '+role+(nodes[i].dead?' dead':''));}
+function setDead(i,dead){nodes[i].dead=dead;nodeEls[i].setAttribute('class','node '+nodes[i].role+(dead?' dead':''));}
+function setTerm(i,t){nodes[i].term=t;nodeEls[i].querySelector('.nterm').textContent='t'+t;}
+
+// hint chip anchored to leader (N3, index 2)
+const stageEl=document.getElementById('stage'), hint=document.getElementById('hint');
+function placeHint(){
+  const r=stageEl.getBoundingClientRect();
+  const sx=r.width/800, sy=r.height/520, s=Math.min(sx,sy);
+  const ox=(r.width-800*s)/2, oy=(r.height-520*s)/2;
+  hint.style.left=(ox+pos[2].x*s)+'px'; hint.style.top=(oy+(pos[2].y-30)*s)+'px';
+}
+placeHint(); addEventListener('resize',placeHint);
+
+// ---------- pulses (heartbeats / votes) ----------
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let pulses=[]; let leaderIdx=2; let partitioned=false;
+function connected(a,b){ if(partitioned){const g1=[0,1];return g1.includes(a)===g1.includes(b);} return true;}
+function spawnHeartbeats(){
+  if(nodes[leaderIdx]?.dead) return;
+  for(let i=0;i<5;i++){ if(i===leaderIdx||nodes[i].dead||!connected(leaderIdx,i))continue;
+    pulses.push({from:leaderIdx,to:i,p:0,color:'var(--follower)'});
+  }
+}
+function spawnVotes(from){
+  for(let i=0;i<5;i++){ if(i===from||nodes[i].dead||!connected(from,i))continue;
+    pulses.push({from,to:i,p:0,color:'var(--candidate)'});
+    pulses.push({from:i,to:from,p:-0.5,color:'var(--candidate)'});
+  }
+}
+const pulseLayer=document.createElementNS(NS,'g'); svg.appendChild(pulseLayer);
+let hbTimer=setInterval(spawnHeartbeats,900);
+function tick(){
+  pulseLayer.innerHTML='';
+  if(!reduced) for(const p of pulses){
+    p.p+=0.035; if(p.p<0)continue;
+    const a=pos[p.from],b=pos[p.to],t=Math.min(p.p,1);
+    const c=document.createElementNS(NS,'circle');
+    c.setAttribute('class','pulse');c.setAttribute('r','3.6');
+    c.setAttribute('cx',a.x+(b.x-a.x)*t);c.setAttribute('cy',a.y+(b.y-a.y)*t);
+    c.setAttribute('fill',p.color);
+    pulseLayer.appendChild(c);
+  }
+  pulses=pulses.filter(p=>p.p<1);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ---------- log wall ----------
+const stripsEl=document.getElementById('strips');
+const stripState=[...Array(5)].map(()=>({cells:[],committed:0}));
+const stripEls=[...Array(5)].map((_,i)=>{
+  const d=document.createElement('div');d.className='strip';
+  d.innerHTML=`<span class="sid">N${i+1}</span><div class="cells"><div class="wm" style="left:2px"></div></div>`;
+  stripsEl.appendChild(d);return d.querySelector('.cells');
+});
+function appendCell(i,term,committed){
+  const c=document.createElement('div');c.className='cell'+(committed?'':' uncommitted');
+  c.style.background=termColor(term);
+  stripEls[i].insertBefore(c,stripEls[i].querySelector('.wm'));
+  stripState[i].cells.push({term,el:c});
+  if(stripState[i].cells.length>34){stripState[i].cells.shift().el.remove();stripState[i].committed--;}
+}
+function commitTo(i,n){
+  const st=stripState[i];
+  while(st.committed<Math.min(n,st.cells.length)){
+    st.cells[st.committed].el.classList.remove('uncommitted');st.committed++;
+  }
+  const wm=stripEls[i].querySelector('.wm');
+  wm.style.left=(2+st.committed*16)+'px';
+}
+for(let i=0;i<5;i++){for(let k=0;k<14;k++)appendCell(i,7,k<12);commitTo(i,12);}
+
+function appendRound(){
+  if(nodes[leaderIdx]?.dead)return;
+  const t=nodes[leaderIdx].term;
+  for(let i=0;i<5;i++){if(nodes[i].dead||!connected(leaderIdx,i))continue;appendCell(i,t,false);}
+  setTimeout(()=>{for(let i=0;i<5;i++){if(nodes[i].dead||!connected(leaderIdx,i))continue;commitTo(i,stripState[i].cells.length);}},450);
+}
+let appendTimer=setInterval(appendRound,1300);
+
+// ---------- events + narrator ----------
+const evlist=document.getElementById('evlist');const narrator=document.getElementById('narrator');
+let vclock=12.4;
+setInterval(()=>{vclock+=0.1;},100);
+function ev(kind,msg){
+  const d=document.createElement('div');d.className='ev k-'+kind;
+  d.innerHTML=`<span class="t">${vclock.toFixed(2)}s</span><span class="m">${msg}</span>`;
+  evlist.appendChild(d);evlist.scrollTop=evlist.scrollHeight;
+  while(evlist.children.length>200)evlist.firstChild.remove();
+}
+function narrate(msg){narrator.classList.add('fade');setTimeout(()=>{narrator.textContent=msg;narrator.classList.remove('fade');},250);}
+ev('append','N3 →all AppendEntries(t7, idx 812)');
+ev('commit','commitIndex → 812 (quorum 3/5)');
+setInterval(()=>{if(!nodes[leaderIdx]?.dead){ev('append',`N${leaderIdx+1} →all AppendEntries(t${nodes[leaderIdx].term})`);}},2600);
+
+// ---------- toast ----------
+const toast=document.getElementById('toast');let toastT;
+function showToast(msg){toast.textContent=msg;toast.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>toast.classList.remove('on'),2200);}
+document.getElementById('shareBtn').onclick=()=>showToast('Link copied — it replays this exact run, faults included.');
+
+// ---------- scripted interactions ----------
+let busy=false;
+function killLeader(){
+  if(busy||nodes[leaderIdx].dead)return;busy=true;
+  hint.classList.add('gone');
+  const old=leaderIdx;
+  setDead(old,true);setRole(old,'follower');
+  document.getElementById('mk1').hidden=false;
+  ev('fault',`⚡ kill N${old+1}`);
+  narrate(`Node ${old+1} went down. The others will notice when heartbeats stop.`);
+  setTimeout(()=>{
+    const cand=0; setRole(cand,'candidate');setTerm(cand,8);spawnVotes(cand);
+    ev('elect',`N1 election timeout — RequestVote(t8)`);
+    narrate(`Node 1's election timer fired — it's asking for votes (term 8).`);
+    setTimeout(()=>{
+      setRole(cand,'leader');leaderIdx=cand;
+      for(let i=0;i<5;i++){if(i!==cand&&!nodes[i].dead)setTerm(i,8);}
+      ev('elect','N1 wins election t8 (3/4 votes)');
+      narrate('Node 1 won the election with 3 votes. Term 8 has a leader.');
+      busy=false;
+    },1500);
+  },1400);
+}
+document.getElementById('killBtn').onclick=killLeader;
+hint.onclick=killLeader;
+nodeEls.forEach((g,i)=>g.addEventListener('click',()=>{
+  if(i===leaderIdx&&!nodes[i].dead)killLeader();
+  else if(nodes[i].dead){setDead(i,false);setTerm(i,nodes[leaderIdx].term);
+    ev('fault',`⚡ restart N${i+1}`);narrate(`Node ${i+1} is back. It follows the new leader and catches up.`);}
+}));
+document.getElementById('splitBtn').onclick=()=>{
+  if(partitioned)return;partitioned=true;wall.classList.add('on');
+  document.getElementById('mk2').hidden=false;
+  ev('fault','⚡ partition {N1,N2} | {N3,N4,N5}');
+  narrate('The network is split 2 | 3. The minority side can’t commit.');
+};
+document.getElementById('healBtn').onclick=()=>{
+  if(!partitioned)return;partitioned=false;wall.classList.remove('on');
+  ev('fault','⚡ heal partition');
+  narrate('Partition healed. Divergent entries are being overwritten by the leader’s log.');
+  // reconcile animation: strike trailing cells on minority strips, then re-append
+  for(const i of [0,1]){ if(nodes[i].dead||i===leaderIdx)continue;
+    const st=stripState[i];
+    st.cells.slice(-2).forEach(c=>c.el.classList.add('conflict'));
+    setTimeout(()=>{st.cells.slice(-2).forEach(c=>{c.el.style.background=termColor(nodes[leaderIdx].term);c.el.classList.remove('conflict');});},600);
+  }
+};
+let paused=false;
+document.getElementById('pauseBtn').onclick=e=>{
+  paused=!paused;e.currentTarget.textContent=paused?'▶':'⏸';
+  if(paused){clearInterval(hbTimer);clearInterval(appendTimer);narrate('Paused. Faults injected now land at this instant.');}
+  else{hbTimer=setInterval(spawnHeartbeats,900);appendTimer=setInterval(appendRound,1300);narrate('Running.');}
+};
+</script>

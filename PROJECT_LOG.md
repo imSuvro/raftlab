@@ -11,8 +11,8 @@ main, tagged on completion.
 | 1 | Research | Product Owner | done | v0.1 |
 | 2 | Product definition (PRD) | Product Owner | done | v0.2 |
 | 3 | Feasibility spike | Architect | done | v0.3 |
-| 4 | UX | UX Designer | in progress | |
-| 5 | Architecture (ADRs) | Architect | pending | |
+| 4 | UX | UX Designer | done | v0.4 |
+| 5 | Architecture (ADRs) | Architect | in progress | |
 | 6 | Planning (backlog) | Product Owner | pending | |
 | 7 | Repo + CI | DevOps | pending | |
 | 8 | Protocol core | Dev | pending | |

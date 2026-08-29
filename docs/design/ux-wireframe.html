@@ -1,0 +1,213 @@
+<title>Raftlab Wireframe</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Deliberate single-theme drafting-paper look; every surface painted explicitly. */
+  :root{
+    --paper:#F7F6F2; --ink:#2B3240; --line:#B9BFCB; --box:#ECEBE5;
+    --note:#8A63D2; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+       line-height:1.5;padding:48px 24px 96px}
+  .sheet{max-width:980px;margin:0 auto}
+  h1{font-family:var(--mono);font-weight:500;font-size:28px;letter-spacing:-.5px}
+  .sub{color:#5A6375;max-width:64ch;margin-top:8px}
+  h2{font-family:var(--mono);font-weight:500;font-size:15px;text-transform:uppercase;
+     letter-spacing:.12em;margin:56px 0 16px;border-bottom:1px solid var(--line);
+     padding-bottom:8px}
+  /* wireframe boxes */
+  .frame{border:1.5px solid var(--ink);background:#FFFFFF;border-radius:4px;overflow:hidden}
+  .wf{background:var(--box);border:1px dashed var(--line);border-radius:3px;
+      display:flex;align-items:center;justify-content:center;position:relative;
+      font-family:var(--mono);font-size:12.5px;color:#5A6375;text-align:center;padding:8px}
+  .tag{position:absolute;top:-9px;left:-9px;width:20px;height:20px;border-radius:50%;
+       background:var(--note);color:#fff;font-family:var(--mono);font-size:11px;
+       display:flex;align-items:center;justify-content:center;z-index:2}
+  .desktop{display:grid;gap:6px;padding:6px;
+    grid-template-columns:1fr 300px;
+    grid-template-rows:44px 300px 120px 56px;
+    grid-template-areas:"top top" "stage events" "logwall events" "transport transport";
+    height:540px}
+  .top{grid-area:top;display:flex;gap:6px}
+  .top .wf:nth-child(1){flex:0 0 110px}
+  .top .wf:nth-child(2){flex:1}
+  .top .wf:nth-child(3){flex:0 0 150px}
+  .top .wf:nth-child(4){flex:0 0 90px}
+  .stage{grid-area:stage}
+  .logwall{grid-area:logwall;display:flex;flex-direction:column;gap:4px;
+           background:var(--box);border:1px dashed var(--line);border-radius:3px;
+           padding:8px;position:relative}
+  .strip{flex:1;background:#fff;border:1px solid var(--line);border-radius:2px;
+         font-family:var(--mono);font-size:10px;color:#8A93A5;display:flex;
+         align-items:center;padding:0 6px}
+  .events{grid-area:events}
+  .transport{grid-area:transport;display:flex;gap:6px}
+  .transport .wf:nth-child(1){flex:0 0 150px}
+  .transport .wf:nth-child(2){flex:1}
+  .transport .wf:nth-child(3){flex:0 0 220px}
+  /* ring sketch inside stage */
+  .ring{position:relative;width:200px;height:200px;margin:0 auto}
+  .nodeSk{position:absolute;width:44px;height:44px;border-radius:50%;
+          border:1.5px solid var(--ink);background:#fff;display:flex;
+          align-items:center;justify-content:center;font-family:var(--mono);font-size:11px}
+  /* annotations */
+  ol.notes{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:10px}
+  ol.notes li{display:flex;gap:12px;align-items:baseline}
+  ol.notes .n{flex:0 0 20px;height:20px;border-radius:50%;background:var(--note);
+      color:#fff;font-family:var(--mono);font-size:11px;display:flex;
+      align-items:center;justify-content:center;transform:translateY(3px)}
+  ol.notes b{font-weight:600}
+  /* mobile */
+  .mobile{width:220px;display:flex;flex-direction:column;gap:5px;padding:5px;height:430px}
+  .mobile .wf{font-size:11px}
+  /* storyboard */
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .cell{border:1.5px solid var(--ink);border-radius:4px;background:#fff;padding:10px;
+        display:flex;flex-direction:column;gap:8px}
+  .cell .mini{height:110px;position:relative}
+  .cell p{font-size:12.5px;color:#5A6375}
+  .cell .cap{font-family:var(--mono);font-size:11px;color:var(--ink);
+             border-top:1px solid var(--line);padding-top:6px}
+  .dot{position:absolute;width:26px;height:26px;border-radius:50%;
+       border:1.5px solid var(--ink);background:#fff;font-family:var(--mono);
+       font-size:9px;display:flex;align-items:center;justify-content:center}
+  .dead{background:repeating-linear-gradient(45deg,#ddd 0 3px,#fff 3px 6px);color:#999;
+        border-style:dashed;transform:rotate(4deg)}
+  .cand{border-color:var(--note);border-width:2.5px}
+  .lead{border-width:2.5px;box-shadow:0 0 0 3px rgba(43,50,64,.15)}
+  .lead::after{content:"♛";position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:10px}
+  @media (max-width:760px){.desktop{height:auto;grid-template-columns:1fr;
+    grid-template-rows:44px 240px 110px 200px 56px;
+    grid-template-areas:"top" "stage" "logwall" "events" "transport"}
+    .board{grid-template-columns:1fr 1fr}}
+</style>
+
+<div class="sheet">
+  <h1>raftlab — playground wireframe</h1>
+  <p class="sub">Structural blueprint for the fault-injection playground. Companion to
+  <code style="font-family:var(--mono)">docs/ux.md</code>, which carries the palette, copy
+  system, and data contract. Numbered notes below map to the purple markers.</p>
+
+  <h2>Desktop ≥1024px — full viewport, no page scroll</h2>
+  <div class="frame desktop">
+    <div class="top">
+      <div class="wf">wordmark</div>
+      <div class="wf"><span class="tag">1</span>narrator caption — plain-English line, cross-fades</div>
+      <div class="wf"><span class="tag">2</span>seed 0xC0FFEE</div>
+      <div class="wf">Share</div>
+    </div>
+    <div class="wf stage"><span class="tag">3</span>
+      <div>
+        <div class="ring">
+          <div class="nodeSk lead" style="left:78px;top:0">N3</div>
+          <div class="nodeSk" style="left:156px;top:56px">N4</div>
+          <div class="nodeSk" style="left:128px;top:150px">N5</div>
+          <div class="nodeSk" style="left:28px;top:150px">N1</div>
+          <div class="nodeSk" style="left:0;top:56px">N2</div>
+        </div>
+        cluster stage — ring of 5, message pulses on edges,<br>partition drawn as a wall, click node → popover
+      </div>
+    </div>
+    <div class="logwall"><span class="tag">4</span>
+      <div class="strip">N1 ▒▒▒▒▒▒▒▒▒▒│commit▮</div>
+      <div class="strip">N2 ▒▒▒▒▒▒▒▒▒▒│</div>
+      <div class="strip">N3 ▒▒▒▒▒▒▒▒▒▒▒▒│</div>
+      <div class="strip">N4 ▒▒▒▒▒▒▒▒▒▒│</div>
+      <div class="strip">N5 ▒▒▒▒▒▒▒▒│</div>
+    </div>
+    <div class="wf events"><span class="tag">5</span>event log — virtualized, mono,<br>filter chips, auto-follow,<br>"jump to live" pill</div>
+    <div class="transport">
+      <div class="wf"><span class="tag">6</span>⏸ ▶ step · 1×</div>
+      <div class="wf">timeline ══╬══▲═▲══ scrubber + fault markers</div>
+      <div class="wf"><span class="tag">7</span>Split network · Heal · Kill node</div>
+    </div>
+  </div>
+
+  <ol class="notes">
+    <li><span class="n">1</span><span><b>Narrator caption.</b> The interpreter for zero-Raft
+      visitors: "Node 3 went down. The others will notice when heartbeats stop." Sourced from
+      event-log deltas carrying <code>narratorLine</code>; never jargon.</span></li>
+    <li><span class="n">2</span><span><b>Seed field.</b> Editable hex; Enter reloads the run
+      deterministically. Share copies a URL encoding seed + every injected fault.</span></li>
+    <li><span class="n">3</span><span><b>Cluster stage.</b> Role halo (leader amber + crown,
+      follower steel, candidate violet, dead hatched + tilted), term number, commit arc.
+      Click a node: Kill / Restart / Slow clock. The pulsing
+      <b>"Try: kill the leader"</b> hint chip anchors to the leader on first visit.</span></li>
+    <li><span class="n">4</span><span><b>Log wall — the signature.</b> One strip per node, one
+      cell per entry tinted by term, green commit watermark. Diverges under partition,
+      visibly reconciles on heal.</span></li>
+    <li><span class="n">5</span><span><b>Event log.</b> Protocol truth for the curious;
+      newest at bottom; filters: Elections · Appends · Client ops · Faults.</span></li>
+    <li><span class="n">6</span><span><b>Transport.</b> Pause/play, single-step, speed
+      0.25–16×; scrubbing re-runs the deterministic sim to that instant. Keyboard: space,
+      <code>.</code>, <code>←/→</code>.</span></li>
+    <li><span class="n">7</span><span><b>Fault controls.</b> Outcome-named, sentence case.
+      Split network uses a 2/3 preset; long-press opens the group editor. Faults injected
+      while paused land at the paused instant.</span></li>
+  </ol>
+
+  <h2>Mobile &lt;768px — stacked, scrollable</h2>
+  <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <div class="frame mobile">
+      <div class="wf" style="flex:0 0 36px">wordmark · caption</div>
+      <div class="wf" style="flex:1">stage (square)</div>
+      <div class="wf" style="flex:0 0 34px">fault chips row</div>
+      <div class="wf" style="flex:0 0 64px">log wall (h-scroll)</div>
+      <div class="wf" style="flex:0 0 34px">▸ Events (drawer)</div>
+      <div class="wf" style="flex:0 0 40px">transport — sticky bottom</div>
+    </div>
+    <p style="max-width:46ch;font-size:14px;color:#5A6375">Same zero-knowledge path: the
+    cluster is already running, the hint chip still points at the leader, targets ≥44px.
+    Event log collapses to a drawer; log wall scrolls horizontally.</p>
+  </div>
+
+  <h2>The four-second thesis — "kill the leader" storyboard</h2>
+  <div class="board">
+    <div class="cell">
+      <div class="mini">
+        <div class="dot dead" style="left:44%;top:6px">N3</div>
+        <div class="dot" style="left:76%;top:44px">N4</div>
+        <div class="dot" style="left:62%;top:82px">N5</div>
+        <div class="dot" style="left:22%;top:82px">N1</div>
+        <div class="dot" style="left:8%;top:44px">N2</div>
+      </div>
+      <p>Visitor clicks the hint chip. Leader dies: hatched, tilted, heartbeats stop.</p>
+      <div class="cap">"Node 3 went down. The others will notice when heartbeats stop."</div>
+    </div>
+    <div class="cell">
+      <div class="mini">
+        <div class="dot dead" style="left:44%;top:6px">N3</div>
+        <div class="dot" style="left:76%;top:44px">N4</div>
+        <div class="dot" style="left:62%;top:82px">N5</div>
+        <div class="dot cand" style="left:22%;top:82px">N1</div>
+        <div class="dot" style="left:8%;top:44px">N2</div>
+      </div>
+      <p>An election timer fires. N1 turns candidate (violet); vote requests pulse outward.</p>
+      <div class="cap">"Node 1's election timer fired — it's asking for votes (term 8)."</div>
+    </div>
+    <div class="cell">
+      <div class="mini">
+        <div class="dot dead" style="left:44%;top:6px">N3</div>
+        <div class="dot" style="left:76%;top:44px">N4</div>
+        <div class="dot" style="left:62%;top:82px">N5</div>
+        <div class="dot lead" style="left:22%;top:82px">N1</div>
+        <div class="dot" style="left:8%;top:44px">N2</div>
+      </div>
+      <p>Majority grants. N1 turns amber, takes the crown; heartbeats resume from it.</p>
+      <div class="cap">"Node 1 won the election with 3 votes. Term 8 has a leader."</div>
+    </div>
+    <div class="cell">
+      <div class="mini">
+        <div class="dot" style="left:44%;top:6px">N3</div>
+        <div class="dot" style="left:76%;top:44px">N4</div>
+        <div class="dot" style="left:62%;top:82px">N5</div>
+        <div class="dot lead" style="left:22%;top:82px">N1</div>
+        <div class="dot" style="left:8%;top:44px">N2</div>
+      </div>
+      <p>Visitor restarts N3. It rejoins as a follower; the log wall backfills its strip.</p>
+      <div class="cap">"Node 3 is back. It follows the new leader and catches up."</div>
+    </div>
+  </div>
+</div>
