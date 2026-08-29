@@ -9,8 +9,8 @@ main, tagged on completion.
 | # | Stage | Role | Status | Tag |
 |---|-------|------|--------|-----|
 | 1 | Research | Product Owner | done | v0.1 |
-| 2 | Product definition (PRD) | Product Owner | in progress | |
-| 3 | Feasibility spike | Architect | pending | |
+| 2 | Product definition (PRD) | Product Owner | done | v0.2 |
+| 3 | Feasibility spike | Architect | in progress | |
 | 4 | UX | UX Designer | pending | |
 | 5 | Architecture (ADRs) | Architect | pending | |
 | 6 | Planning (backlog) | Product Owner | pending | |
