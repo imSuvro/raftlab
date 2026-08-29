@@ -12,8 +12,8 @@ main, tagged on completion.
 | 2 | Product definition (PRD) | Product Owner | done | v0.2 |
 | 3 | Feasibility spike | Architect | done | v0.3 |
 | 4 | UX | UX Designer | done | v0.4 |
-| 5 | Architecture (ADRs) | Architect | in progress | |
-| 6 | Planning (backlog) | Product Owner | pending | |
+| 5 | Architecture (ADRs) | Architect | done | v0.5 |
+| 6 | Planning (backlog) | Product Owner | in progress | |
 | 7 | Repo + CI | DevOps | pending | |
 | 8 | Protocol core | Dev | pending | |
 | 9 | Simulator | Dev | pending | |
@@ -48,6 +48,15 @@ main, tagged on completion.
   finding: Antithesis found safety violations in four mature production Raft
   implementations via network faults alone — the differentiation is the
   harness, not the Raft.
+
+- **Stage 5 (architecture)**: five ADRs written in parallel, then a
+  cross-consistency review found 6 must-fix contract divergences (workload
+  reification shape, v/seed placement in the share URL, stale ux.md fields,
+  regression-assertion regime, checker trigger taxonomy, failure-artifact
+  shape) — all resolved with canonical rulings before ratification. Notable
+  honest deferral recorded in ADR-0002: synchronous per-step persistence
+  makes the "crash between state change and persist-ack" window
+  unrepresentable; async persistence is a future fault stage.
 
 ## Spike numbers (stage 3)
 

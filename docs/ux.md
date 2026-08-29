@@ -179,14 +179,17 @@ Worker protocol (UI → worker): `load(scenario)`, `play(speed)`, `pause()`,
 `stepOnce()`, `scrubTo(g)`, `inject(faultOp)` (worker stamps virtual time,
 appends to script, echoes `scenarioChanged(scenario)` so the URL bar
 updates). Worker → UI: `frame(ClusterView, eventLogDelta[])`,
-`scenarioChanged`. Event-log entries arrive as append-only deltas with
+`scenarioChanged`, and `violation(InvariantViolation)` — sent when the
+dev-flag checker subset trips in the playground worker (the UI shows it; the
+worker does not crash). Event-log entries arrive as append-only deltas with
 `{g, kind, actors, summary, narratorLine?}` — the narrator caption is the
 latest delta carrying `narratorLine`, so narration is computed in the sim
 layer (where the protocol context lives), not in React.
 
-Share URL: `#v1.<seed>.<base64url(deflate-raw(JSON({net, script, workload, nodes, horizon})))>`
-— absent/invalid hash loads the default scenario (seed 1, 5 nodes, no
-faults) auto-playing at 1×.
+Share URL: `#v1.<seed>.<base64url(deflate-raw(JSON(scenario minus v and seed)))>`
+— the payload is `{nodes, horizonMs, net, script, workload | ops}`, and the
+decoder reassembles `v` and `seed` into the Scenario; absent/invalid hash
+loads the default scenario (seed 1, 5 nodes, no faults) auto-playing at 1×.
 
 ## Accessibility floor
 
