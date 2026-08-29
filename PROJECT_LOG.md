@@ -10,8 +10,8 @@ main, tagged on completion.
 |---|-------|------|--------|-----|
 | 1 | Research | Product Owner | done | v0.1 |
 | 2 | Product definition (PRD) | Product Owner | done | v0.2 |
-| 3 | Feasibility spike | Architect | in progress | |
-| 4 | UX | UX Designer | pending | |
+| 3 | Feasibility spike | Architect | done | v0.3 |
+| 4 | UX | UX Designer | in progress | |
 | 5 | Architecture (ADRs) | Architect | pending | |
 | 6 | Planning (backlog) | Product Owner | pending | |
 | 7 | Repo + CI | DevOps | pending | |
@@ -51,7 +51,22 @@ main, tagged on completion.
 
 ## Spike numbers (stage 3)
 
-_To be filled by the stage-3 harness._
+Measured 2026-08-29, Node v22.22.3, Windows 11, `spike/spike.mjs` (echo
+protocol, 5 nodes, (time, seq)-ordered binary heap, xoshiro128** seeded via
+splitmix32, FNV-1a trace hash):
+
+- **Determinism**: identical seed → byte-identical trace across 10 in-process
+  runs AND across 4 separate OS processes (hash 0xfe5bebd8 every time);
+  seed+1 diverges as expected.
+- **Throughput**: ~17.4M events/sec without tracing; ~3.9M events/sec with a
+  naive per-event string trace. Lesson for stage 9: trace as structured
+  records, serialize/hash lazily — string building per event costs 4.5x.
+  Even at 100x Raft overhead vs echo, thousands of seeds/minute is safe;
+  the CI fuzz-tier estimate (≥3,000 seeds/min) has ample headroom.
+- **structuredClone**: 87 µs for a 6.0KB playground-frame-sized view model →
+  2.6 ms/sec at 30 Hz. Full-snapshot frames are the right call; no diffing.
+- **Scrub feasibility**: one 60-virtual-second run (18.0k events) replays in
+  ~1.0 ms → timeline scrubbing re-runs from t=0; no checkpointing needed.
 
 ## Bug log
 
