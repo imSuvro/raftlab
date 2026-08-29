@@ -8,8 +8,8 @@ main, tagged on completion.
 
 | # | Stage | Role | Status | Tag |
 |---|-------|------|--------|-----|
-| 1 | Research | Product Owner | in progress | |
-| 2 | Product definition (PRD) | Product Owner | pending | |
+| 1 | Research | Product Owner | done | v0.1 |
+| 2 | Product definition (PRD) | Product Owner | in progress | |
 | 3 | Feasibility spike | Architect | pending | |
 | 4 | UX | UX Designer | pending | |
 | 5 | Architecture (ADRs) | Architect | pending | |
@@ -36,6 +36,18 @@ main, tagged on completion.
 - **2026-08-29** Deploys run from the working session via the authenticated
   Vercel connector; CI does not deploy (would need a `VERCEL_TOKEN` secret —
   see NEEDS-HUMAN).
+
+## Stage notes
+
+- **Stage 1 (research)**: 5-source parallel sweep (Raft paper + Students'
+  Guide, FoundationDB, TigerBeetle VOPR, Antithesis, TS/JS implementation
+  survey) synthesized into `docs/research.md`. Key input for later stages: the
+  full extended-paper text sits at
+  `C:\Users\Suvro\AppData\Local\Temp\claude\D--Personal-career-os\d08b2c46-62bd-4937-a683-a5194f5e5067\scratchpad\raft-extended.txt`
+  (session-local; re-extract from raft.github.io/raft.pdf if gone). Headline
+  finding: Antithesis found safety violations in four mature production Raft
+  implementations via network faults alone — the differentiation is the
+  harness, not the Raft.
 
 ## Spike numbers (stage 3)
 
