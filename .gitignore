@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vercel/
+fuzz-failures/
+*.local
+.DS_Store

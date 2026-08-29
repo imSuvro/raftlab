@@ -1,0 +1,58 @@
+# raftlab — project log
+
+Raft consensus in TypeScript with deterministic simulation testing, plus a
+browser playground for live fault injection. One branch per stage, merged to
+main, tagged on completion.
+
+## Stage status
+
+| # | Stage | Role | Status | Tag |
+|---|-------|------|--------|-----|
+| 1 | Research | Product Owner | in progress | |
+| 2 | Product definition (PRD) | Product Owner | pending | |
+| 3 | Feasibility spike | Architect | pending | |
+| 4 | UX | UX Designer | pending | |
+| 5 | Architecture (ADRs) | Architect | pending | |
+| 6 | Planning (backlog) | Product Owner | pending | |
+| 7 | Repo + CI | DevOps | pending | |
+| 8 | Protocol core | Dev | pending | |
+| 9 | Simulator | Dev | pending | |
+| 10 | Invariants | Dev | pending | |
+| 11 | Fuzz campaign | QA | pending | |
+| 12 | Playground | Dev | pending | |
+| 13 | Review | QA/Dev | pending | |
+| 14 | Deploy | DevOps | pending | |
+| 15 | Launch | Product Owner | pending | |
+
+## Decisions
+
+- **2026-08-29** Name/location: `imSuvro/raftlab` at `D:\Personal\raftlab`;
+  npm scope `@raftlab` (`@raftlab/core`, `@raftlab/sim`); site target
+  `raftlab.vercel.app`. Names verified free on GitHub and npm at decision time.
+- **2026-08-29** Conventional commits, no AI-attribution trailers.
+- **2026-08-29** Toolchain: pnpm workspaces, TS project references + `tsc -b`
+  typecheck, ESM-only library builds via plain `tsc`, Vitest, ESLint flat
+  config with a three-rule determinism ban scoped to `packages/{core,sim}`.
+- **2026-08-29** Deploys run from the working session via the authenticated
+  Vercel connector; CI does not deploy (would need a `VERCEL_TOKEN` secret —
+  see NEEDS-HUMAN).
+
+## Spike numbers (stage 3)
+
+_To be filled by the stage-3 harness._
+
+## Bug log
+
+Simulator-found bugs live in `docs/bugs.md` (seed, minimal trace, root cause,
+fix commit). Summary counts will be mirrored here as the fuzz campaign runs.
+
+## NEEDS-HUMAN
+
+- **npm publish auth**: `npm whoami` fails on this machine — no npm login.
+  Publishing `@raftlab/core` / `@raftlab/sim` (and creating the free npm org
+  `@raftlab` so the scope isn't sniped) requires the user to `npm login` and
+  run `npm publish --access public` in each package. Packages will be left
+  fully publish-ready (metadata, exports map, pack-check green in CI).
+- **Optional — CI-driven Vercel deploys**: would require adding a
+  `VERCEL_TOKEN` repo secret. Not blocking; the session's Vercel connector
+  covers the stage-14 production deploy.
