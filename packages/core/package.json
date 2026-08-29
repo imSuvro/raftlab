@@ -1,0 +1,26 @@
+{
+  "name": "@raftlab/core",
+  "version": "0.1.0",
+  "description": "Sans-IO Raft consensus state machine: pure step function, ordered effects, zero dependencies, zero IO",
+  "license": "MIT",
+  "author": "Suvra Samajder",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imSuvro/raftlab.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/imSuvro/raftlab#readme",
+  "keywords": ["raft", "consensus", "distributed-systems", "sans-io", "state-machine"],
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

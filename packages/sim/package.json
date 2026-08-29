@@ -1,0 +1,29 @@
+{
+  "name": "@raftlab/sim",
+  "version": "0.1.0",
+  "description": "Deterministic cluster simulator for @raftlab/core: virtual time, seeded fault injection, invariant and linearizability checking, seed-exact replay",
+  "license": "MIT",
+  "author": "Suvra Samajder",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imSuvro/raftlab.git",
+    "directory": "packages/sim"
+  },
+  "homepage": "https://github.com/imSuvro/raftlab#readme",
+  "keywords": ["raft", "deterministic-simulation", "fault-injection", "linearizability", "testing", "fuzzing"],
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@raftlab/core": "workspace:*"
+  }
+}
