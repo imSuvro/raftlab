@@ -14,7 +14,7 @@ main, tagged on completion.
 | 4 | UX | UX Designer | done | v0.4 |
 | 5 | Architecture (ADRs) | Architect | done | v0.5 |
 | 6 | Planning (backlog) | Product Owner | done | v0.6 |
-| 7 | Repo + CI | DevOps | in progress | |
+| 7 | Repo + CI | DevOps | done | v0.7 |
 | 8 | Protocol core | Dev | pending | |
 | 9 | Simulator | Dev | pending | |
 | 10 | Invariants | Dev | pending | |
@@ -36,6 +36,14 @@ main, tagged on completion.
 - **2026-08-29** Deploys run from the working session via the authenticated
   Vercel connector; CI does not deploy (would need a `VERCEL_TOKEN` secret —
   see NEEDS-HUMAN).
+- **2026-08-29** From stage 8 on, stage branches merge to main through pull
+  requests so the required CI contexts actually gate them (stages 1–7
+  predate the remote and were merged locally). Branch protection: required
+  contexts lint/typecheck/test/pack (+ fuzz-smoke from stage 11), no
+  required reviews (solo), force-push disabled, not enforced for admins as
+  the emergency hatch.
+- **2026-08-29** pnpm's ignored-build-scripts default kept; only esbuild's
+  postinstall is allow-listed in pnpm-workspace.yaml.
 
 ## Stage notes
 

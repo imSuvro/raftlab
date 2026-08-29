@@ -1,0 +1,11 @@
+{
+  "name": "raftlab-playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Browser playground for raftlab — the deterministic simulator running client-side with live fault injection",
+  "dependencies": {
+    "@raftlab/core": "workspace:*",
+    "@raftlab/sim": "workspace:*"
+  }
+}

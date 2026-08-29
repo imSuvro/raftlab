@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@raftlab/core": ["../../packages/core/src/index.ts"],
+      "@raftlab/sim": ["../../packages/sim/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

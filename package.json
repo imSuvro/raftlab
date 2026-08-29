@@ -1,0 +1,22 @@
+{
+  "name": "raftlab-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.24.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -b && tsc -p apps/playground",
+    "build": "tsc -b",
+    "test": "vitest run",
+    "pack-check": "attw --pack packages/core --profile esm-only && attw --pack packages/sim --profile esm-only"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "eslint": "^9.34.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.40.0",
+    "vitest": "^3.2.4"
+  }
+}
