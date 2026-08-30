@@ -143,3 +143,25 @@ restriction, and the §8 no-op behavior all survived three audit lenses,
   job works — the deterministic guarantee covers the simulation, not the
   build graph around it. This is the one class of failure seed-reproducibility
   cannot help with, which is why the smoke job runs on a clean checkout.
+
+## BUG-5 — Simulator: virtual time froze across idle windows
+
+- **Found by**: the playground's first browser run (stage 12) — the UI
+  rendered, the cluster appeared, and the clock sat at `0.0s` forever.
+- **Root cause**: the frame loop asks the world to advance to
+  `now + 33ms × speed`. `runUntil` drained every event due in that window
+  and returned — but `sched.now` only moves when an event is *popped*, and
+  the first 150ms of a run has nothing scheduled (election timeouts fire at
+  150–300ms). So `now` stayed 0, the next target stayed 33, and the loop
+  asked for the same empty window forever.
+- **Why the fuzz campaign never saw it**: `run()` drains to the horizon in
+  one pass and reads its results from final state, so it never depends on
+  the clock advancing through an idle window. The bug lived exclusively in
+  the incremental API the playground introduced.
+- **Fix**: `runUntil` advances the clock to its limit when nothing is due —
+  virtual time genuinely passed. Commit `13d4f91`. Trace hashes are
+  unaffected (records carry the popped event's `g`, not `sched.now`), which
+  the 117-test suite confirmed.
+- **Lesson**: "no events" and "no time" are different things. A discrete-
+  event scheduler that only advances on event pops is correct for
+  batch runs and silently wrong for anything driving it in real-time slices.
