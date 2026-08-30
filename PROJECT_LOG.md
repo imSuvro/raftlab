@@ -19,10 +19,10 @@ main, tagged on completion.
 | 9 | Simulator | Dev | done | v0.9 |
 | 10 | Invariants | Dev | done | v0.10 |
 | 11 | Fuzz campaign | QA | done | v0.11 |
-| 12 | Playground | Dev | in progress | |
-| 13 | Review | QA/Dev | pending | |
-| 14 | Deploy | DevOps | pending | |
-| 15 | Launch | Product Owner | pending | |
+| 12 | Playground | Dev | done | v0.12 |
+| 13 | Review | QA/Dev | done | v0.13 |
+| 14 | Deploy | DevOps | done | v0.14 |
+| 15 | Launch | Product Owner | done | v0.15 |
 
 ## Decisions
 
@@ -116,6 +116,34 @@ main, tagged on completion.
   seeds/min**. 10,000 seeds total, clean. Two genuine tooling bugs found and fixed by the campaign's own
   scaffolding (linearizability mask overflow at 31 ops/key; minimizer
   greedy non-convergence) — full write-ups in docs/bugs.md.
+
+- **Stage 12 (playground)**: React + Vite app running @raftlab/sim unchanged
+  in a web worker. Cluster ring with role halos and in-flight message
+  animation, the log wall (per-node strips tinted by term), narrated event
+  log, transport with scrub-by-rerun, fault controls, share URLs. Live
+  injection appends a stamped op to scenario.script, keeping the session a
+  pure function of (seed, script). Bug found and fixed during bring-up:
+  `runUntil` did not advance virtual time across idle windows, so a frame
+  loop asking for "the next 33ms" never progressed when nothing was due
+  (see docs/bugs.md BUG-5). Also hit React error #185 from zustand v5
+  object-returning selectors — fixed with atomic selectors.
+- **Stage 13 (review)**: verified in-browser against the ratified ux.md
+  contract — cluster runs on load, kill-the-leader re-elects, partition
+  diverges the logs and heal reconciles them (68/74 → 84/84), share URL
+  round-trips deterministically. Mobile layout, reduced-motion, and the
+  keyboard/a11y floor are implemented per ux.md.
+- **Stage 14 (deploy)**: Vercel project linked to the GitHub repo (auto-
+  deploys on push to main). Live URL verified interactively: cluster
+  animates, killing the leader produced N4 down → N1 leader in term 2 with
+  term-2 entries replicating to 35/35.
+- **Stage 15 (launch)**: recruiter-facing README with the live URL and the
+  10,000-seed result; docs/bugs.md is the launch asset. packages/core and
+  packages/sim remain publish-ready (pack + attw green in CI); npm auth is
+  the outstanding NEEDS-HUMAN item.
+
+## Live URL
+
+https://raftlab-suvros-projects.vercel.app
 
 ## Spike numbers (stage 3)
 

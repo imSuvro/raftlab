@@ -1,7 +1,7 @@
 # Handoff — raftlab
 
-State as of 2026-08-30. Stages 1–11 of 15 are complete, merged to main, and
-tagged (v0.1–v0.11). Main is protected with five required CI contexts
+State as of 2026-08-30. **All 15 stages are complete**, merged to main, and
+tagged (v0.1–v0.15). Live: https://raftlab-suvros-projects.vercel.app Main is protected with five required CI contexts
 (lint, typecheck, test, pack, fuzz-smoke), all green. The repo is at
 https://github.com/imSuvro/raftlab.
 
@@ -30,25 +30,16 @@ https://github.com/imSuvro/raftlab.
   artifacts), six ADRs, backlog.md, bugs.md (2 tooling bugs + 1 core
   efficiency bug + 1 not-a-bug triage, fully written up), PROJECT_LOG.md.
 
-## What remains (stages 12–15)
+## Shipped since
 
-1. **Stage 12 — Playground** (`apps/playground`, currently a placeholder):
-   implement docs/ux.md exactly — Vite + React, sim in a web worker,
-   cluster ring + log wall + narrator caption + timeline scrub + fault
-   controls, share URLs `#v1.<seed>.<base64url(deflate-raw(JSON(scenario
-   minus v and seed)))>`. The high-fidelity mockup artifact
-   (docs/design/ux-mockup.html) already validates the look and the
-   kill-the-leader choreography; the worker protocol and ClusterView shape
-   are frozen in docs/ux.md and ADR-0002/0005. Backlog items F1–F8.
-2. **Stage 13 — Review**: engineering:code-review over the codebase; fix
-   findings; cross-browser + mobile pass.
-3. **Stage 14 — Deploy**: build playground → deploy via the Vercel
-   connector (`deploy_to_vercel`; local CLI is NOT installed) → verify live:
-   cluster animates, killing the leader re-elects, partition + heal
-   reconciles. Target raftlab.vercel.app.
-4. **Stage 15 — Launch**: recruiter-facing README (live URL, architecture
-   diagram, GIF), docs/writeup.md ("DST and my own Raft" — bugs.md has the
-   material), npm publish-readiness is already green in CI (pack + attw).
+- **Playground** (`apps/playground`): React + Vite, sim in a web worker,
+  cluster ring, log wall, narrator captions, scrub-by-rerun, fault controls,
+  share URLs. Verified live: kill-the-leader re-elects, partition/heal
+  reconciles.
+- **Deploy**: Vercel project linked to the GitHub repo — every push to main
+  auto-deploys. No token needed locally.
+- **Launch docs**: README with the live URL, docs/writeup.md (methodology +
+  three bugs seed-to-root-cause), docs/bugs.md (five bugs + one not-a-bug).
 
 ## How to run everything
 
