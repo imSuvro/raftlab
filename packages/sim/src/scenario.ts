@@ -13,6 +13,14 @@ export type FaultOp =
   | { at: number; op: 'restart'; node: NodeId }
   | { at: number; op: 'clockSkew'; node: NodeId; offsetMs: number; driftPpm: number };
 
+/** A fault op without its timestamp. Distributive so each union member keeps
+ *  its own fields — a plain Omit<FaultOp, 'at'> collapses to the shared keys. */
+export type FaultOpSpec = FaultOp extends infer T
+  ? T extends { at: number }
+    ? Omit<T, 'at'>
+    : never
+  : never;
+
 export interface WorkloadOp {
   at: number; // global ms, open-loop
   client: number;
