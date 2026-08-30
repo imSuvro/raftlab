@@ -7,9 +7,11 @@ export { Scheduler, NodeClock, type SimEvent } from './engine/scheduler.js';
 export {
   World,
   generateWorkloadOps,
+  type ClusterView,
   type NodeView,
   type SimResult,
   type SimStats,
+  type UiEvent,
   type WorldOptions,
 } from './engine/world.js';
 export {
@@ -19,6 +21,7 @@ export {
   validateScenario,
   RAFT_TIMING,
   type FaultOp,
+  type FaultOpSpec,
   type NetProfile,
   type Scenario,
   type WorkloadOp,

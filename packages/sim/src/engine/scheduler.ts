@@ -7,12 +7,12 @@ import type { Message, NodeId, TimerKind } from '@raftlab/core';
 import type { FaultOp, WorkloadOp } from '../scenario.js';
 
 export type SimEvent =
-  | { kind: 'deliver'; to: NodeId; from: NodeId; msg: Message }
+  | { kind: 'deliver'; to: NodeId; from: NodeId; msg: Message; sendG: number }
   | { kind: 'timer'; node: NodeId; timer: TimerKind; gen: number }
   | { kind: 'fault'; op: FaultOp }
   | { kind: 'client'; op: WorkloadOp };
 
-interface HeapEntry {
+export interface HeapEntry {
   g: number; // global virtual time, integer ms
   seq: number;
   ev: SimEvent;
@@ -30,6 +30,24 @@ export class Scheduler {
 
   get size(): number {
     return this.heap.length;
+  }
+
+  /** Global time of the earliest pending event, or undefined when idle.
+   *  The heap root is the (g, seq) minimum by construction. */
+  peekG(): number | undefined {
+    return this.heap[0]?.g;
+  }
+
+  /** Read-only view of pending events (playground message animation). */
+  pending(): readonly HeapEntry[] {
+    return this.heap;
+  }
+
+  /** Move virtual time forward across an interval in which nothing is due.
+   *  Never moves backwards, and never past a pending event — callers pass a
+   *  bound they have already drained. */
+  idleAdvanceTo(g: number): void {
+    if (g > this.now) this.now = g;
   }
 
   push(g: number, ev: SimEvent): void {

@@ -19,7 +19,13 @@ import {
 import { CheckerSet, type ObservedNode } from '../checkers/invariants.js';
 import { checkLinearizability } from '../checkers/linearizability.js';
 import type { HistoryEntry } from '../history.js';
-import { RAFT_TIMING, type FaultOp, type Scenario, type WorkloadOp } from '../scenario.js';
+import {
+  RAFT_TIMING,
+  type FaultOp,
+  type FaultOpSpec,
+  type Scenario,
+  type WorkloadOp,
+} from '../scenario.js';
 import { Trace } from '../trace.js';
 import { NodeClock, Scheduler, type SimEvent } from './scheduler.js';
 import { splitStreams, type RngStreams, type Xoshiro128 } from './rng.js';
@@ -79,6 +85,28 @@ export interface NodeView {
   leaderId: NodeId | null;
 }
 
+/** The playground's frame payload (docs/ux.md data contract). */
+export interface ClusterView {
+  g: number;
+  nodes: Array<
+    NodeView & {
+      logWindow: Array<{ index: number; term: number }>;
+      clockOffsetMs: number;
+    }
+  >;
+  inflight: Array<{ from: NodeId; to: NodeId; kind: string; sendG: number; deliverG: number }>;
+  partitions: NodeId[][] | null;
+  leaderId: NodeId | null;
+}
+
+export interface UiEvent {
+  g: number;
+  kind: 'election' | 'append' | 'commit' | 'fault' | 'client';
+  summary: string;
+  /** Plain-English line for the narrator caption, when this event deserves one. */
+  narratorLine?: string;
+}
+
 export interface SimResult {
   hash: number;
   hashHex: string;
@@ -93,6 +121,9 @@ export interface SimResult {
 export interface WorldOptions {
   /** Retain the last N trace records (failure artifacts / UI). 0 = hash only. */
   keepTraceTail?: number;
+  /** Collect the human-readable, narrated event log (playground). Off by
+   *  default so the fuzz hot path allocates nothing extra. */
+  collectEvents?: boolean;
   /** Continuous invariant + end-of-run linearizability checking (default on). */
   checkers?: boolean;
   /** Run the full cross-node log-matching scan every N events (nightly
@@ -134,6 +165,9 @@ export class World {
   afterStep: ((world: World, node: SimNode, ev: SimEvent, effects: Effect[]) => void) | null = null;
   private readonly checkers: CheckerSet | null;
   private readonly paranoidEvery: number;
+  private readonly collectEvents: boolean;
+  /** Narrated event log (playground only; empty unless collectEvents). */
+  readonly events: UiEvent[] = [];
 
   private readonly clients: ClientState[];
   private readonly opsById = new Map<string, HistoryEntry>();
@@ -149,6 +183,7 @@ export class World {
     this.trace = new Trace(opts.keepTraceTail ?? 0);
     this.checkers = (opts.checkers ?? true) ? new CheckerSet() : null;
     this.paranoidEvery = opts.paranoidEveryEvents ?? 0;
+    this.collectEvents = opts.collectEvents ?? false;
 
     const all = Array.from({ length: scenario.nodes }, (_, i) => i);
     this.nodes = all.map((id) => ({
@@ -221,7 +256,7 @@ export class World {
           const copies = this.streams.net.chancePpm(this.scenario.net.dupPpm) ? 2 : 1;
           for (let c = 0; c < copies; c++) {
             const delay = this.streams.net.int(this.scenario.net.delayMs[0], this.scenario.net.delayMs[1]);
-            this.sched.push(g + delay, { kind: 'deliver', to: e.to, from: nd.id, msg: e.msg });
+            this.sched.push(g + delay, { kind: 'deliver', to: e.to, from: nd.id, msg: e.msg, sendG: g });
           }
           if (copies === 2) this.stats.duplicates++;
           break;
@@ -291,16 +326,120 @@ export class World {
 
   private stepNode(nd: SimNode, input: Input, ev: SimEvent, g: number, seq: number): void {
     if (nd.state === null) return;
+    const before = this.collectEvents
+      ? { role: nd.state.role, term: nd.state.currentTerm, commit: nd.state.commitIndex }
+      : null;
     const effects = step(nd.state, input);
     this.executeEffects(nd, effects, g, seq);
     if (this.checkers !== null) this.checkers.observe(this.observed(nd), effects, this.trace.records);
+    if (before !== null && nd.state !== null) this.narrate(nd, before, g);
     if (this.afterStep !== null) this.afterStep(this, nd, ev, effects);
+  }
+
+  /** Turn a step's state delta into event-log entries and narrator lines. */
+  private narrate(
+    nd: SimNode,
+    before: { role: string; term: number; commit: number },
+    g: number,
+  ): void {
+    const s = nd.state;
+    if (s === null) return;
+    const n = nd.id + 1; // humans count from 1
+    if (s.role !== before.role) {
+      if (s.role === 'candidate') {
+        this.pushEvent({
+          g,
+          kind: 'election',
+          summary: `N${n} election timeout — RequestVote(t${s.currentTerm})`,
+          narratorLine: `Node ${n}'s election timer fired — it's asking for votes (term ${s.currentTerm}).`,
+        });
+      } else if (s.role === 'leader') {
+        const quorum = Math.floor(this.scenario.nodes / 2) + 1;
+        this.pushEvent({
+          g,
+          kind: 'election',
+          summary: `N${n} wins election t${s.currentTerm}`,
+          narratorLine: `Node ${n} won the election with at least ${quorum} votes. Term ${s.currentTerm} has a leader.`,
+        });
+      } else if (before.role === 'leader') {
+        this.pushEvent({
+          g,
+          kind: 'election',
+          summary: `N${n} steps down (t${s.currentTerm})`,
+          narratorLine: `Node ${n} is no longer the leader — a higher term appeared.`,
+        });
+      }
+    }
+    if (s.commitIndex > before.commit) {
+      this.pushEvent({ g, kind: 'commit', summary: `N${n} commitIndex → ${s.commitIndex}` });
+    }
+  }
+
+  private pushEvent(e: UiEvent): void {
+    this.events.push(e);
+    if (this.events.length > 400) this.events.shift();
   }
 
   // ------------------------------------------------------------- faults
 
+  private narrateFault(op: FaultOp, g: number): void {
+    if (!this.collectEvents) return;
+    const n = (id: NodeId): number => id + 1;
+    switch (op.op) {
+      case 'partition':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: `partition ${op.groups.map((grp) => grp.map(n).join(',')).join(' | ')}`,
+          narratorLine: `The network is split ${op.groups.map((grp) => grp.length).join(' | ')}. The minority side can't commit.`,
+        });
+        break;
+      case 'blockLinks':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: `block ${op.links.map(([a, b]) => `N${n(a)}→N${n(b)}`).join(', ')}`,
+          narratorLine: 'Some one-way links are broken. Messages get through in only one direction.',
+        });
+        break;
+      case 'heal':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: 'heal network',
+          narratorLine: 'Network healed. Divergent entries get overwritten by the leader’s log.',
+        });
+        break;
+      case 'crash':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: `kill N${n(op.node)}`,
+          narratorLine: `Node ${n(op.node)} went down. The others will notice when heartbeats stop.`,
+        });
+        break;
+      case 'restart':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: `restart N${n(op.node)}`,
+          narratorLine: `Node ${n(op.node)} is back. It follows the current leader and catches up.`,
+        });
+        break;
+      case 'clockSkew':
+        this.pushEvent({
+          g,
+          kind: 'fault',
+          summary: `skew N${n(op.node)} ${op.offsetMs}ms ${op.driftPpm}ppm`,
+          narratorLine: `Node ${n(op.node)}'s clock now runs at a different rate. Its timers drift out of step.`,
+        });
+        break;
+    }
+  }
+
   private applyFault(op: FaultOp, g: number, seq: number): void {
     this.stats.faultsApplied++;
+    this.narrateFault(op, g);
     switch (op.op) {
       case 'partition': {
         this.partition = new Map();
@@ -390,59 +529,108 @@ export class World {
 
   // ------------------------------------------------------------- main loop
 
+  /**
+   * Process events while the next one is due at or before `targetG`.
+   * The playground's frame loop drives the world in slices this way; run()
+   * is the same loop with the horizon as the target.
+   * Returns false when the world is idle (no pending events).
+   */
+  runUntil(targetG: number): boolean {
+    const limit = Math.min(targetG, this.scenario.horizonMs);
+    for (;;) {
+      const nextG = this.sched.peekG();
+      if (nextG === undefined || nextG > limit) {
+        // Nothing is due before `limit`, so virtual time genuinely passed:
+        // advance the clock, or the playground's frame loop would ask for
+        // the same window forever and never move.
+        this.sched.idleAdvanceTo(limit);
+        return nextG !== undefined;
+      }
+      this.processNext();
+    }
+  }
+
+  /** Process exactly one event (the transport bar's step button). */
+  stepOnce(): boolean {
+    if (this.sched.peekG() === undefined) return false;
+    this.processNext();
+    return true;
+  }
+
+  /** Append a fault at the current virtual time (live injection). Keeps the
+   *  session a pure function of (seed, script): scrubbing replays it. */
+  injectFault(op: FaultOpSpec): FaultOp {
+    const stamped = { ...op, at: this.sched.now } as FaultOp;
+    this.scenario.script.push(stamped);
+    this.sched.push(stamped.at, { kind: 'fault', op: stamped });
+    return stamped;
+  }
+
+  private processNext(): void {
+    const entry = this.sched.pop();
+    if (entry === undefined) return;
+    const { g, seq, ev } = entry;
+    this.stats.events++;
+    this.dispatch(ev, g, seq);
+    if (
+      this.checkers !== null &&
+      this.paranoidEvery > 0 &&
+      this.stats.events % this.paranoidEvery === 0
+    ) {
+      this.checkers.fullScan(this.nodes.map((n) => this.observed(n)), this.trace.records);
+    }
+  }
+
+  /** Route one popped event to its handler. Shared by run() and the
+   *  playground's incremental runUntil()/stepOnce(). */
+  private dispatch(ev: SimEvent, g: number, seq: number): void {
+    switch (ev.kind) {
+      case 'deliver': {
+        const nd = this.nodes[ev.to];
+        if (nd === undefined || !nd.alive) {
+          this.stats.dropsDead++;
+          break;
+        }
+        if (!this.linkAllows(ev.from, ev.to)) {
+          this.stats.dropsLink++;
+          break;
+        }
+        this.stats.deliveries++;
+        this.trace.add(g, seq, ev.to, 'deliver', `${ev.msg.kind}<${ev.from} t${ev.msg.term}`);
+        this.stepNode(
+          nd,
+          { type: 'message', from: ev.from, msg: ev.msg, now: nd.clock.localAt(g) },
+          ev,
+          g,
+          seq,
+        );
+        break;
+      }
+      case 'timer': {
+        const nd = this.nodes[ev.node];
+        if (nd === undefined || !nd.alive || nd.timerGen[ev.timer] !== ev.gen) {
+          this.stats.timersStale++;
+          break;
+        }
+        this.stats.timersFired++;
+        this.trace.add(g, seq, ev.node, 'timer', ev.timer);
+        this.stepNode(nd, { type: 'timeout', timer: ev.timer, now: nd.clock.localAt(g) }, ev, g, seq);
+        break;
+      }
+      case 'fault':
+        this.applyFault(ev.op, g, seq);
+        break;
+      case 'client':
+        this.dispatchClient(ev.op, g, seq);
+        break;
+    }
+  }
+
   run(): SimResult {
     for (;;) {
-      const entry = this.sched.pop();
-      if (entry === undefined || entry.g > this.scenario.horizonMs) break;
-      const { g, seq, ev } = entry;
-      this.stats.events++;
-      switch (ev.kind) {
-        case 'deliver': {
-          const nd = this.nodes[ev.to];
-          if (nd === undefined || !nd.alive) {
-            this.stats.dropsDead++;
-            break;
-          }
-          if (!this.linkAllows(ev.from, ev.to)) {
-            this.stats.dropsLink++;
-            break;
-          }
-          this.stats.deliveries++;
-          this.trace.add(g, seq, ev.to, 'deliver', `${ev.msg.kind}<${ev.from} t${ev.msg.term}`);
-          this.stepNode(
-            nd,
-            { type: 'message', from: ev.from, msg: ev.msg, now: nd.clock.localAt(g) },
-            ev,
-            g,
-            seq,
-          );
-          break;
-        }
-        case 'timer': {
-          const nd = this.nodes[ev.node];
-          if (nd === undefined || !nd.alive || nd.timerGen[ev.timer] !== ev.gen) {
-            this.stats.timersStale++;
-            break;
-          }
-          this.stats.timersFired++;
-          this.trace.add(g, seq, ev.node, 'timer', ev.timer);
-          this.stepNode(nd, { type: 'timeout', timer: ev.timer, now: nd.clock.localAt(g) }, ev, g, seq);
-          break;
-        }
-        case 'fault':
-          this.applyFault(ev.op, g, seq);
-          break;
-        case 'client':
-          this.dispatchClient(ev.op, g, seq);
-          break;
-      }
-      if (
-        this.checkers !== null &&
-        this.paranoidEvery > 0 &&
-        this.stats.events % this.paranoidEvery === 0
-      ) {
-        this.checkers.fullScan(this.nodes.map((n) => this.observed(n)), this.trace.records);
-      }
+      const nextG = this.sched.peekG();
+      if (nextG === undefined || nextG > this.scenario.horizonMs) break;
+      this.processNext();
     }
     let linearizability: { keysChecked: number; opsChecked: number } | undefined;
     if (this.checkers !== null) {
@@ -451,6 +639,41 @@ export class World {
       linearizability = { keysChecked: report.keysChecked, opsChecked: report.opsChecked };
     }
     return this.result(linearizability);
+  }
+
+  /** Frame payload for the playground (docs/ux.md data contract). */
+  clusterView(logWindowSize = 30): ClusterView {
+    const leader = this.nodes.find((nd) => nd.alive && nd.state?.role === 'leader');
+    const inflight: ClusterView['inflight'] = [];
+    for (const entry of this.sched.pending()) {
+      if (entry.ev.kind !== 'deliver') continue;
+      const { from, to, msg, sendG } = entry.ev;
+      if (!this.linkAllows(from, to)) continue; // a blocked message never appears in flight
+      if (this.nodes[to]?.alive !== true) continue;
+      inflight.push({ from, to, kind: msg.kind, sendG, deliverG: entry.g });
+    }
+    const partitions: NodeId[][] | null =
+      this.partition === null
+        ? null
+        : [...new Set(this.partition.values())]
+            .sort((a, b) => a - b)
+            .map((grp) => this.nodes.filter((nd) => this.partition?.get(nd.id) === grp).map((nd) => nd.id));
+    return {
+      g: this.sched.now,
+      nodes: this.view().map((nv) => {
+        const nd = this.nodes[nv.id];
+        const log = nd?.state?.log ?? nd?.storage.log ?? [];
+        const start = Math.max(0, log.length - logWindowSize);
+        return {
+          ...nv,
+          logWindow: log.slice(start).map((e, i) => ({ index: start + i + 1, term: e.term })),
+          clockOffsetMs: nd === undefined ? 0 : nd.clock.localAt(this.sched.now) - this.sched.now,
+        };
+      }),
+      inflight,
+      partitions,
+      leaderId: leader?.id ?? null,
+    };
   }
 
   view(): NodeView[] {
