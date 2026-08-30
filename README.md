@@ -9,6 +9,13 @@ a new one get elected. Split the network and watch the logs diverge, then heal
 it and watch them reconcile. Every run is reproducible from its seed, so the
 URL you share replays exactly what you saw.
 
+![A 5-node Raft cluster partitioned 2|3 and then healed: the minority stops committing at entry 79 while the majority continues, then all five logs reconcile after a re-election](docs/media/partition-heal.gif)
+
+*Rendered from real simulator output — seed 7, partition at 9s, heal at 21s.
+The two isolated nodes freeze at entry 79 and burn through 57 failed
+elections; the majority keeps committing; on heal the stale side's inflated
+term forces a re-election and every log reconciles.*
+
 ---
 
 ## Why this exists
@@ -36,6 +43,62 @@ tests are the product — the playground just makes them watchable.
 | [`@raftlab/core`](packages/core) | The Raft state machine. **Sans-IO**: no timers, no sockets, no clock, no randomness. `step(state, input) → Effect[]`. Zero dependencies. |
 | [`@raftlab/sim`](packages/sim) | The deterministic simulator: virtual time, seeded fault injection, invariant + linearizability checking, seed-exact replay. |
 | [`apps/playground`](apps/playground) | The same core and simulator, running in a web worker in your browser. |
+
+### How it fits together
+
+The core decides *what should happen*; the simulator decides *when things
+happen*. Everything else — the fuzzer, the browser, the tests — is a
+different environment wrapped around that same loop.
+
+```mermaid
+flowchart LR
+  subgraph drivers["Three drivers, one engine"]
+    direction TB
+    FUZZ["fuzz CLI<br/><i>10,000 seeds</i>"]
+    WORKER["playground<br/><i>web worker</i>"]
+    TESTS["vitest<br/><i>determinism + regressions</i>"]
+  end
+
+  SEED(["seed :: one number"]) --> SPLIT
+  SPLIT["splitmix32 → 4 streams<br/>network · timers · faults · workload"] --> WORLD
+
+  subgraph sim["@raftlab/sim — owns time, network, storage"]
+    WORLD["World"]
+    HEAP["event heap<br/>ordered by (virtualTime, seq)"]
+    STORE[("SimStorage<br/><i>survives crashes</i>")]
+    WORLD --> HEAP
+    HEAP -- "next event" --> WORLD
+    WORLD <--> STORE
+  end
+
+  WORLD -- "Input<br/>message · timeout · clientRequest" --> CORE
+  CORE -- "Effect[]<br/>persist · send · resetTimer · apply" --> WORLD
+
+  subgraph core["@raftlab/core — sans-IO, zero deps"]
+    CORE["step(state, input)<br/><i>no clock, no sockets, no RNG</i>"]
+  end
+
+  WORLD -- "observes every step" --> CHECK
+  subgraph checkers["Oracles"]
+    CHECK["5 safety invariants<br/>+ linearizability"]
+  end
+  CHECK -- "violation" --> ART["minimize → failure-&lt;seed&gt;.json<br/><i>pnpm repro</i>"]
+  WORLD -- "FNV-1a trace hash" --> HASH{{"same seed ⇒<br/>same hash"}}
+
+  drivers --> WORLD
+
+  classDef pkg fill:#161e2e,stroke:#5b8dd9,color:#d8e1f0
+  classDef oracle fill:#161e2e,stroke:#46c28e,color:#d8e1f0
+  classDef fail fill:#161e2e,stroke:#e1604f,color:#d8e1f0
+  class CORE,WORLD,HEAP,STORE pkg
+  class CHECK,HASH oracle
+  class ART fail
+```
+
+The arrow that matters is the one going **back** into the world: the core
+never acts, it only returns effects. That is what lets the simulator crash a
+node between two effects, drop the message the third effect wanted to send,
+or replay the whole thing tomorrow from one integer.
 
 ### The core is sans-IO
 
