@@ -15,8 +15,8 @@ main, tagged on completion.
 | 5 | Architecture (ADRs) | Architect | done | v0.5 |
 | 6 | Planning (backlog) | Product Owner | done | v0.6 |
 | 7 | Repo + CI | DevOps | done | v0.7 |
-| 8 | Protocol core | Dev | pending | |
-| 9 | Simulator | Dev | pending | |
+| 8 | Protocol core | Dev | done | v0.8 |
+| 9 | Simulator | Dev | in progress | |
 | 10 | Invariants | Dev | pending | |
 | 11 | Fuzz campaign | QA | pending | |
 | 12 | Playground | Dev | pending | |
@@ -65,6 +65,21 @@ main, tagged on completion.
   honest deferral recorded in ADR-0002: synchronous per-step persistence
   makes the "crash between state change and persist-ack" window
   unrepresentable; async persistence is a future fault stage.
+
+- **Stage 8 (core)**: state machine written from the paper (Figure 2 +
+  §5.4.2 commit restriction + §8 no-op + fast-backup hint with a
+  matchIndex+1 floor). Verified three ways: 70 curated tests (foundational
+  semantics, Figure 6/7 convergence conversations, 18 hostile-delivery
+  scenarios); two adversarial audit lenses (Students'-Guide traps, ADR-0001
+  contract) — zero bugs, two nits fixed (stale-failure-reply nextIndex
+  regression; misleading docstring); and a 500-run × 2,200-event fuzz probe
+  (601k steps, 9k elections, 12k restarts, 159k commits) with election/
+  state-machine/commit-safety ledgers — zero violations. Triage note: the
+  probe initially reported 3 calm-phase liveness failures; root cause was
+  the probe's own driver firing election timeouts at a stale-term leader (a
+  correct no-op) instead of driving its heartbeats — protocol exonerated,
+  harness fixed, 500/500 clean. Probe kept session-local; the stage-9 sim
+  supersedes it.
 
 ## Spike numbers (stage 3)
 
