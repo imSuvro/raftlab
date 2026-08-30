@@ -118,3 +118,28 @@ optimization-layer slip the paper doesn't legislate, and BUG-1/BUG-2 live
 in the verification stack. The Figure-2 rule set, the §5.4.2 commit
 restriction, and the §8 no-op behavior all survived three audit lenses,
 10,000 fuzz seeds, and the paper-scenario suite unchanged.
+
+## BUG-4 — CI: fuzz jobs ran before the workspace was built
+
+- **Found by**: the `fuzz-smoke` job's first run on PR #4 — it failed in
+  19s while the identical 500-seed range passed locally.
+- **Symptom**: `ERR_MODULE_NOT_FOUND: Cannot find module
+  packages/sim/node_modules/@raftlab/core/dist/index.js imported from
+  packages/sim/src/engine/world.ts`.
+- **Root cause**: the fuzz CLI runs TypeScript source through `tsx`, but
+  its *cross-package* import of `@raftlab/core` resolves through the
+  workspace link to that package's `dist/` — which the fuzz jobs never
+  built. It passed locally only because the working tree happened to carry
+  a `dist/` from an earlier `pnpm build`.
+- **Second-order finding during triage**: reproducing it locally by
+  deleting `dist/` did *not* reproduce — `tsc -b` saw a fresh
+  `tsconfig.tsbuildinfo` and silently skipped emitting. Deleting the
+  buildinfo restored the emit. Fresh CI checkouts carry no buildinfo, so
+  the workflow fix is sufficient, but it is a sharp edge for anyone
+  hand-cleaning `dist/` locally: remove `*.tsbuildinfo` too.
+- **Fix**: `pnpm build` added ahead of the fuzz step in `ci.yml` and
+  `nightly.yml`. Commit `e4ba4db`.
+- **Lesson**: a green local run of the *same seeds* is not evidence the CI
+  job works — the deterministic guarantee covers the simulation, not the
+  build graph around it. This is the one class of failure seed-reproducibility
+  cannot help with, which is why the smoke job runs on a clean checkout.
