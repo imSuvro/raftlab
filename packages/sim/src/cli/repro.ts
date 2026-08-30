@@ -1,7 +1,8 @@
 // pnpm repro <failure-file.json> — re-run a failure artifact and assert the
 // identical violation at the identical trace hash (ADR-0005).
 
-import { loadFailureArtifact, repro } from './failure.js';
+import { repro } from '../harness.js';
+import { loadFailureArtifact } from './failure.js';
 
 const file = process.argv[2];
 if (file === undefined) {

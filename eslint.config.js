@@ -51,15 +51,19 @@ export default tseslint.config(
     rules: DETERMINISM_BAN,
   },
   {
-    // The fuzz/repro CLI legitimately writes failure artifacts and reads
-    // scenario files; only the IO-import ban is relaxed. The clock and
-    // randomness bans stay — even the CLI must not smuggle wall time in.
+    // The fuzz/repro CLI is the process boundary: it writes failure
+    // artifacts, reads env, and measures wall-clock seeds/min for its own
+    // reporting. Nothing here feeds the deterministic engine — scenarios
+    // are fully reified before any run. Math.random stays banned.
     files: ['packages/sim/src/cli/**/*.ts'],
     rules: {
       'no-restricted-imports': 'off',
+      'no-restricted-syntax': 'off',
       'no-restricted-globals': ['error',
         'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval',
         'setImmediate', 'queueMicrotask', 'requestAnimationFrame'],
+      'no-restricted-properties': ['error',
+        { object: 'Math', property: 'random', message: 'Even the CLI draws no ambient randomness.' }],
     },
   },
 );

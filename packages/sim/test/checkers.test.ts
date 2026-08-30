@@ -13,12 +13,8 @@ import {
   type LogEntry,
   type ObservedNode,
 } from '@raftlab/sim';
-import {
-  captureFailure,
-  loadFailureArtifact,
-  repro,
-  writeFailureArtifact,
-} from '../src/cli/failure.js';
+import { captureFailure, repro } from '../src/harness.js';
+import { loadFailureArtifact, writeFailureArtifact } from '../src/cli/failure.js';
 
 const w = (term: number, opId: string): LogEntry => ({
   term,
