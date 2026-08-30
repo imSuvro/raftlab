@@ -16,8 +16,8 @@ main, tagged on completion.
 | 6 | Planning (backlog) | Product Owner | done | v0.6 |
 | 7 | Repo + CI | DevOps | done | v0.7 |
 | 8 | Protocol core | Dev | done | v0.8 |
-| 9 | Simulator | Dev | in progress | |
-| 10 | Invariants | Dev | pending | |
+| 9 | Simulator | Dev | done | v0.9 |
+| 10 | Invariants | Dev | in progress | |
 | 11 | Fuzz campaign | QA | pending | |
 | 12 | Playground | Dev | pending | |
 | 13 | Review | QA/Dev | pending | |
@@ -80,6 +80,19 @@ main, tagged on completion.
   correct no-op) instead of driving its heartbeats — protocol exonerated,
   harness fixed, 500/500 clean. Probe kept session-local; the stage-9 sim
   supersedes it.
+
+- **Stage 9 (simulator)**: engine per ADR-0002 — xoshiro128** split
+  streams, (dueAtGlobal, seq) heap, per-node clocks with integer-ppm drift,
+  declarative Scenario faults (partition/blockLinks/heal/crash/restart/
+  clockSkew), open-loop workload with frozen HistoryEntry recording,
+  incremental FNV-1a trace hashing with optional tail retention. 21 tests:
+  determinism double-runs across calm and storm profiles, partition/heal
+  convergence, crash/restart catch-up, lossy-network progress, reified-ops
+  hash equality (minimizer contract). Measured throughput: **3,899
+  seeds/min** single-threaded (60s-horizon default scenario, ~16.5k
+  events/seed) — validates ADR-0006's tiering estimate. Design note: under
+  timer-intent semantics an offset-only clock jump is nearly unobservable;
+  drift (ppm) is the operative skew fault — documented in scheduler.ts.
 
 ## Spike numbers (stage 3)
 
