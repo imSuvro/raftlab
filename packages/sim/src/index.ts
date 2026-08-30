@@ -26,6 +26,10 @@ export {
 } from './scenario.js';
 export { Trace, fnv1a, type TraceRecord } from './trace.js';
 export type { HistoryEntry } from './history.js';
+export { CheckerSet, InvariantViolation, type ObservedNode } from './checkers/invariants.js';
+export { checkLinearizability, type LinearizabilityReport } from './checkers/linearizability.js';
+// Note: cli/ modules (failure artifacts, repro) are deliberately NOT
+// re-exported — they import node:fs and would break browser consumers.
 
 import { World, type SimResult, type WorldOptions } from './engine/world.js';
 import { validateScenario, type Scenario } from './scenario.js';
