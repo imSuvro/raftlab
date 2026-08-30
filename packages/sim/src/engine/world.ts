@@ -16,6 +16,8 @@ import {
   type RaftState,
   type TimerKind,
 } from '@raftlab/core';
+import { CheckerSet, type ObservedNode } from '../checkers/invariants.js';
+import { checkLinearizability } from '../checkers/linearizability.js';
 import type { HistoryEntry } from '../history.js';
 import { RAFT_TIMING, type FaultOp, type Scenario, type WorkloadOp } from '../scenario.js';
 import { Trace } from '../trace.js';
@@ -85,11 +87,17 @@ export interface SimResult {
   stats: SimStats;
   finalView: NodeView[];
   maxCommitIndex: number;
+  linearizability?: { keysChecked: number; opsChecked: number };
 }
 
 export interface WorldOptions {
   /** Retain the last N trace records (failure artifacts / UI). 0 = hash only. */
   keepTraceTail?: number;
+  /** Continuous invariant + end-of-run linearizability checking (default on). */
+  checkers?: boolean;
+  /** Run the full cross-node log-matching scan every N events (nightly
+   *  --paranoid tier, ADR-0003). 0 = end-of-run only. */
+  paranoidEveryEvents?: number;
 }
 
 /** Deterministic workload derivation from the generator spec. The minimizer
@@ -122,8 +130,10 @@ export class World {
     events: 0, deliveries: 0, dropsRandom: 0, dropsLink: 0, dropsDead: 0,
     duplicates: 0, timersFired: 0, timersStale: 0, faultsApplied: 0, clientOpsSent: 0,
   };
-  /** Stage-10 hook: called after every processed step with its effects. */
+  /** Hook for observers (playground narration): after every processed step. */
   afterStep: ((world: World, node: SimNode, ev: SimEvent, effects: Effect[]) => void) | null = null;
+  private readonly checkers: CheckerSet | null;
+  private readonly paranoidEvery: number;
 
   private readonly clients: ClientState[];
   private readonly opsById = new Map<string, HistoryEntry>();
@@ -137,6 +147,8 @@ export class World {
     this.scenario = scenario;
     this.streams = splitStreams(scenario.seed >>> 0);
     this.trace = new Trace(opts.keepTraceTail ?? 0);
+    this.checkers = (opts.checkers ?? true) ? new CheckerSet() : null;
+    this.paranoidEvery = opts.paranoidEveryEvents ?? 0;
 
     const all = Array.from({ length: scenario.nodes }, (_, i) => i);
     this.nodes = all.map((id) => ({
@@ -266,10 +278,22 @@ export class World {
     }
   }
 
+  private observed(nd: SimNode): ObservedNode {
+    return {
+      id: nd.id,
+      alive: nd.alive,
+      role: nd.state?.role ?? 'down',
+      term: nd.state?.currentTerm ?? 0,
+      commitIndex: nd.state?.commitIndex ?? 0,
+      log: nd.state?.log ?? nd.storage.log,
+    };
+  }
+
   private stepNode(nd: SimNode, input: Input, ev: SimEvent, g: number, seq: number): void {
     if (nd.state === null) return;
     const effects = step(nd.state, input);
     this.executeEffects(nd, effects, g, seq);
+    if (this.checkers !== null) this.checkers.observe(this.observed(nd), effects, this.trace.records);
     if (this.afterStep !== null) this.afterStep(this, nd, ev, effects);
   }
 
@@ -412,8 +436,21 @@ export class World {
           this.dispatchClient(ev.op, g, seq);
           break;
       }
+      if (
+        this.checkers !== null &&
+        this.paranoidEvery > 0 &&
+        this.stats.events % this.paranoidEvery === 0
+      ) {
+        this.checkers.fullScan(this.nodes.map((n) => this.observed(n)), this.trace.records);
+      }
     }
-    return this.result();
+    let linearizability: { keysChecked: number; opsChecked: number } | undefined;
+    if (this.checkers !== null) {
+      this.checkers.fullScan(this.nodes.map((n) => this.observed(n)), this.trace.records);
+      const report = checkLinearizability(this.historyOrder, this.trace.records);
+      linearizability = { keysChecked: report.keysChecked, opsChecked: report.opsChecked };
+    }
+    return this.result(linearizability);
   }
 
   view(): NodeView[] {
@@ -430,8 +467,8 @@ export class World {
     }));
   }
 
-  private result(): SimResult {
-    return {
+  private result(linearizability?: { keysChecked: number; opsChecked: number }): SimResult {
+    const r: SimResult = {
       hash: this.trace.hash,
       hashHex: this.trace.hashHex,
       traceRecords: this.trace.records,
@@ -440,5 +477,7 @@ export class World {
       finalView: this.view(),
       maxCommitIndex: Math.max(0, ...this.nodes.map((n) => n.state?.commitIndex ?? 0)),
     };
+    if (linearizability !== undefined) r.linearizability = linearizability;
+    return r;
   }
 }

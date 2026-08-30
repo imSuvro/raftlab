@@ -17,8 +17,8 @@ main, tagged on completion.
 | 7 | Repo + CI | DevOps | done | v0.7 |
 | 8 | Protocol core | Dev | done | v0.8 |
 | 9 | Simulator | Dev | done | v0.9 |
-| 10 | Invariants | Dev | in progress | |
-| 11 | Fuzz campaign | QA | pending | |
+| 10 | Invariants | Dev | done | v0.10 |
+| 11 | Fuzz campaign | QA | in progress | |
 | 12 | Playground | Dev | pending | |
 | 13 | Review | QA/Dev | pending | |
 | 14 | Deploy | DevOps | pending | |
@@ -93,6 +93,17 @@ main, tagged on completion.
   events/seed) — validates ADR-0006's tiering estimate. Design note: under
   timer-intent semantics an offset-only clock jump is nearly unobservable;
   drift (ppm) is the operative skew fault — documented in scheduler.ts.
+
+- **Stage 10 (invariants)**: CheckerSet per ADR-0003 (election safety, log
+  matching incremental + full scans, leader append-only, leader
+  completeness via committed-prefix containment, state-machine safety) wired
+  after every step; per-key Wing&Gong linearizability with memoization per
+  ADR-0004 (indeterminate ops = open intervals; notLeader = never
+  linearizes; equal-timestamp touch = concurrent). Every checker proven to
+  fire via fabricated violations; observer purity proven (trace hash equal
+  with checkers on/off/paranoid). Failure artifacts
+  (failure-<seed>.json + hashAtFailure) and `pnpm repro` land per ADR-0005;
+  plumbing tested via a deterministic synthetic-sabotage hook. 20 new tests.
 
 ## Spike numbers (stage 3)
 
