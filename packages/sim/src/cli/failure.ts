@@ -1,63 +1,10 @@
-// Failure artifacts and seed-exact reproduction (ADR-0005, backlog D6/D7).
-// CLI-layer module: may touch the filesystem (lint relaxes the IO ban here);
-// the deterministic engine below it stays sans-IO.
+// Failure-artifact file IO (CLI layer; the lint IO ban is relaxed here).
+// The pure capture/repro logic lives in ../harness.ts.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { World, type WorldOptions } from '../engine/world.js';
-import { InvariantViolation } from '../checkers/invariants.js';
-import { validateScenario, type Scenario } from '../scenario.js';
-import type { TraceRecord } from '../trace.js';
-
-export interface FailureArtifact {
-  scenario: Scenario;
-  violation: { invariant: string; detail: string; eventSeq: number };
-  /** Stage 11's minimizer replaces this with the shrunk scenario; until a
-   *  minimization pass ran it equals `scenario`. */
-  minimizedScenario: Scenario;
-  traceTail: TraceRecord[];
-  /** Trace state at the violating event — repro asserts both. */
-  hashAtFailure: string;
-  recordsAtFailure: number;
-}
-
-export interface CaptureResult {
-  violation: InvariantViolation | null;
-  artifact: FailureArtifact | null;
-}
-
-/**
- * Run one scenario with checkers armed; capture a violation as an artifact.
- * `sabotage` exists for tests: it may install an afterStep hook that throws
- * a deterministic synthetic violation, exercising this plumbing without a
- * core bug.
- */
-export function captureFailure(
-  scenario: Scenario,
-  opts: WorldOptions = {},
-  sabotage?: (world: World) => void,
-): CaptureResult {
-  validateScenario(scenario);
-  const world = new World(scenario, { keepTraceTail: 200, checkers: true, ...opts });
-  if (sabotage !== undefined) sabotage(world);
-  try {
-    world.run();
-    return { violation: null, artifact: null };
-  } catch (err) {
-    if (!(err instanceof InvariantViolation)) throw err;
-    return {
-      violation: err,
-      artifact: {
-        scenario,
-        violation: { invariant: err.invariant, detail: err.detail, eventSeq: err.eventSeq },
-        minimizedScenario: scenario,
-        traceTail: world.trace.tailRecords(),
-        hashAtFailure: world.trace.hashHex,
-        recordsAtFailure: world.trace.records,
-      },
-    };
-  }
-}
+import { validateScenario } from '../scenario.js';
+import type { FailureArtifact } from '../harness.js';
 
 export function writeFailureArtifact(dir: string, artifact: FailureArtifact): string {
   mkdirSync(dir, { recursive: true });
@@ -71,31 +18,4 @@ export function loadFailureArtifact(path: string): FailureArtifact {
   validateScenario(artifact.scenario);
   validateScenario(artifact.minimizedScenario);
   return artifact;
-}
-
-export interface ReproResult {
-  reproduced: boolean;
-  reason: string;
-}
-
-/** Re-run an artifact's scenario and assert the identical violation at the
- *  identical trace hash (same-commit contract, ADR-0005). */
-export function repro(artifact: FailureArtifact, sabotage?: (world: World) => void): ReproResult {
-  const { violation, artifact: fresh } = captureFailure(artifact.scenario, {}, sabotage);
-  if (violation === null || fresh === null) {
-    return { reproduced: false, reason: 'run completed without any violation' };
-  }
-  if (fresh.violation.invariant !== artifact.violation.invariant) {
-    return {
-      reproduced: false,
-      reason: `different invariant: ${fresh.violation.invariant} (was ${artifact.violation.invariant})`,
-    };
-  }
-  if (fresh.hashAtFailure !== artifact.hashAtFailure || fresh.recordsAtFailure !== artifact.recordsAtFailure) {
-    return {
-      reproduced: false,
-      reason: `trace diverged: ${fresh.hashAtFailure}@${fresh.recordsAtFailure} (was ${artifact.hashAtFailure}@${artifact.recordsAtFailure})`,
-    };
-  }
-  return { reproduced: true, reason: `same violation, same trace ${fresh.hashAtFailure}` };
 }

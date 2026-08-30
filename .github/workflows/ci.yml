@@ -50,3 +50,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm pack-check
+
+  fuzz-smoke:
+    # Fixed seed range on every PR (ADR-0006): a red run is reproducible by
+    # anyone with the branch, with no ambiguity about which seeds ran.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fuzz --seeds 0:500 --profile mixed --out fuzz-failures
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures
+          path: fuzz-failures/
+          if-no-files-found: ignore

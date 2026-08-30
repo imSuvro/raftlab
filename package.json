@@ -12,6 +12,7 @@
     "build": "tsc -b",
     "test": "vitest run",
     "repro": "tsx packages/sim/src/cli/repro.ts",
+    "fuzz": "tsx packages/sim/src/cli/fuzz.ts",
     "pack-check": "attw --pack packages/core --profile esm-only && attw --pack packages/sim --profile esm-only"
   },
   "devDependencies": {

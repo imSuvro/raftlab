@@ -28,6 +28,15 @@ export { Trace, fnv1a, type TraceRecord } from './trace.js';
 export type { HistoryEntry } from './history.js';
 export { CheckerSet, InvariantViolation, type ObservedNode } from './checkers/invariants.js';
 export { checkLinearizability, type LinearizabilityReport } from './checkers/linearizability.js';
+export {
+  captureFailure,
+  repro,
+  type CaptureResult,
+  type FailureArtifact,
+  type ReproResult,
+} from './harness.js';
+export { minimizeScenario, type MinimizeResult } from './fuzz/minimizer.js';
+export { generateScenario, PROFILES, type ProfileName } from './fuzz/profiles.js';
 // Note: cli/ modules (failure artifacts, repro) are deliberately NOT
 // re-exported — they import node:fs and would break browser consumers.
 

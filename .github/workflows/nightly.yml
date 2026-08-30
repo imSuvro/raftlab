@@ -1,0 +1,39 @@
+name: Nightly fuzz
+
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: 0, profile: partition-heavy }
+          - { shard: 1, profile: crash-heavy }
+          - { shard: 2, profile: clock-chaos }
+          - { shard: 3, profile: mixed }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Rolling seed window (coverage accumulates across nights, ADR-0006)
+        id: seeds
+        run: |
+          DAYS=$(( $(date +%s) / 86400 ))
+          BASE=$(( DAYS * 5000 + ${{ matrix.shard }} * 1250 ))
+          echo "from=$BASE" >> "$GITHUB_OUTPUT"
+          echo "to=$(( BASE + 1250 ))" >> "$GITHUB_OUTPUT"
+          echo "Base seed window: $BASE .. $(( BASE + 1250 ))" >> "$GITHUB_STEP_SUMMARY"
+      - run: pnpm fuzz --seeds ${{ steps.seeds.outputs.from }}:${{ steps.seeds.outputs.to }} --profile ${{ matrix.profile }} --paranoid 1000 --out fuzz-failures
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failures-${{ matrix.profile }}
+          path: fuzz-failures/
+          if-no-files-found: ignore

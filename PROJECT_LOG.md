@@ -18,8 +18,8 @@ main, tagged on completion.
 | 8 | Protocol core | Dev | done | v0.8 |
 | 9 | Simulator | Dev | done | v0.9 |
 | 10 | Invariants | Dev | done | v0.10 |
-| 11 | Fuzz campaign | QA | in progress | |
-| 12 | Playground | Dev | pending | |
+| 11 | Fuzz campaign | QA | done | v0.11 |
+| 12 | Playground | Dev | in progress | |
 | 13 | Review | QA/Dev | pending | |
 | 14 | Deploy | DevOps | pending | |
 | 15 | Launch | Product Owner | pending | |
@@ -104,6 +104,18 @@ main, tagged on completion.
   with checkers on/off/paranoid). Failure artifacts
   (failure-<seed>.json + hashAtFailure) and `pnpm repro` land per ADR-0005;
   plumbing tested via a deterministic synthetic-sabotage hook. 20 new tests.
+
+- **Stage 11 (fuzz)**: profile generator (mixed / partition-heavy /
+  crash-heavy / clock-chaos, incl. asymmetric blockLinks), fixed-point
+  minimizer (ddmin script → ddmin ops → field shrink → horizon-last,
+  iterated; then node-count), fuzz CLI with GITHUB_STEP_SUMMARY reporting,
+  fuzz-smoke joins ci.yml as the 5th required context, nightly.yml with
+  rolling seed windows. **Campaign: 5,000 seeds × 4 profiles, 0 violations,
+  112s (~2,676 seeds/min with all checkers)**; paranoid sweep (5,000 more
+  seeds, full scans every 1,000 events): **0 violations, ~2,387
+  seeds/min**. 10,000 seeds total, clean. Two genuine tooling bugs found and fixed by the campaign's own
+  scaffolding (linearizability mask overflow at 31 ops/key; minimizer
+  greedy non-convergence) — full write-ups in docs/bugs.md.
 
 ## Spike numbers (stage 3)
 
